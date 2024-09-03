@@ -62,6 +62,35 @@ class AutoEncoder(Dictionary, nn.Module):
         self.dict_size = self.encoder.weight.shape[1]
         return self
     
+    def from_hf(repo, filename, device='cpu'):
+        """
+        Download autoencoder weights from hugging face.
+        """
+        from huggingface_hub import hf_hub_download
+        from safetensors import safe_open
+                
+        path = hf_hub_download(repo, filename)
+        
+        tensor_dict = dict()
+        
+        with safe_open(path, 'pt') as f:
+            for k in f.keys():
+                tensor_dict[k] = f.get_tensor(k)
+                
+        d_in, d_sae, = tensor_dict['W_enc'].shape
+        self = AutoEncoder(d_in, d_sae, device=device)
+        
+        state_dict = {'encoder.weight': tensor_dict['W_enc'].T,
+                      'encoder.bias': tensor_dict['b_enc'],
+                      'decoder.weight': tensor_dict['W_dec'].T,
+                      'bias': tensor_dict['b_dec']}
+        
+        self.load_state_dict(state_dict)
+        self.activation_dim = self.encoder.weight.shape[0]
+        self.dict_size = self.encoder.weight.shape[1]
+        return self
+        
+    
     def from_saelens(release, sae_id, device='cpu'):
         """
         Load a pretrained Saelens autoencoder from hugging face.
